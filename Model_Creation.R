@@ -1,7 +1,4 @@
 # random forest - model creation, model summary
-
-library(randomForest); library(rpart); library(rpart.plot); library(RColorBrewer); library(rattle)
-library(gbm)
 set.seed(125)
 
 RFModel <- randomForest(classe ~ ., data=train_data, ntree = 500, importance = TRUE)

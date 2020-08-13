@@ -15,3 +15,9 @@ valid_data  <- valid_data[, -NZV]
 dim(train_data)
 dim(valid_data)
 
+
+# predictor correlation plot
+
+corMatrix <- cor(train_data[, -53])
+corrplot(corMatrix, order = "FPC", method = "color", type = "lower", 
+         tl.cex = 0.8, tl.col = rgb(0, 0, 0))

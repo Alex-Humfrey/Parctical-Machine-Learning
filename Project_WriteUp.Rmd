@@ -1,0 +1,127 @@
+---
+title: "Project_WriteUp"
+author: "Alex Humfrey"
+date: "13 August 2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+### Data Loading and Pre Processing
+Necessary libraries were uploaded, Data was downloaded and loaded into R. Variables which add no value to the model and variables with only NA values were removed from the data set before the model creation stage.
+
+```{r}
+library(dplyr); library(ggplot2);library(caret); library(randomForest); library(rpart) 
+library(rpart.plot); library(RColorBrewer); library(rattle); library(gbm); library(corrplot)
+
+url_train <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+url_test <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+
+destfile_train <- "/Users/alexhumfrey/Documents/Data Science Coursera/Scripts/PracticalMachineLearning/train_data.csv"
+destfile_test <- "/Users/alexhumfrey/Documents/Data Science Coursera/Scripts/PracticalMachineLearning/test_data.csv"
+
+download.file(url_train, destfile = destfile_train)
+download.file(url_test, destfile = destfile_test)
+
+training <- read.csv(destfile_train)
+dim(training)
+testing <- read.csv(destfile_test)
+dim(testing)
+
+```
+There are 19622 obs. of 160 variables in the training set, and there are 20 obs of 160 variables in the test set. Lots of variables have only NAs.
+
+```{r}
+# remove variables w/ missing vales
+train_data <- training[, colSums(is.na(training)) == 0]
+test_data <- testing[, colSums(is.na(testing)) == 0]
+
+# remove variables which have no impact on the classe of the exercise
+train_data <- train_data[, -(1:7)]
+test_data  <- test_data[, -(1:7)]
+
+dim(train_data);dim(test_data)
+```
+
+### Prediction Preparation and Exploratory Analysis
+The training data set was split into a validation set and a training set, a correlation plot was created to show the strength of linear correlation between each of the variables in the model. We can see from the correlation plot that there aren't too many variables that are highly correlated therefore it was decided that a PCA was not necessary.
+
+```{r}
+# split to training  and validation sets
+set.seed(12432) 
+inTrain <- createDataPartition(train_data$classe, p = 0.7, list = FALSE)
+train_data <- train_data[inTrain, ]
+valid_data <- train_data[-inTrain, ]
+dim(train_data)
+dim(valid_data)
+
+#remove variables with near zero variance
+NZV <- nearZeroVar(train_data)
+train_data <- train_data[, -NZV]
+valid_data  <- valid_data[, -NZV]
+dim(train_data)
+dim(valid_data)
+
+# predictor correlation plots
+corMatrix <- cor(train_data[, -53])
+corrplot(corMatrix, order = "FPC", method = "color", type = "lower", 
+         tl.cex = 0.8, tl.col = rgb(0, 0, 0))
+```
+
+### Model Creation and Prediction on Validation Set
+Three different methods were used to create prediction models for the data. 1. Random Forest model. 2. Classification Tree Model. 3. Generalised Boosting Model. A summary of each of the models is provided.
+
+```{r}
+# random forest - model creation, model summary
+set.seed(125)
+RFModel <- randomForest(classe ~ ., data=train_data, ntree = 500, importance = TRUE)
+RFModel$finalModel
+
+#predict on the validation set, and create confusions Matrix
+predictRF <- predict(RFModel, newdata=valid_data)
+cmrf <- confusionMatrix(predictRF, valid_data$classe)
+cmrf$table
+
+# classification tree  - model creation, model summary
+set.seed(12345)
+DTmodel <- train(classe ~ ., data=train_data, method="rpart")
+DTmodel$finalModel
+fancyRpartPlot(DTmodel$finalModel)
+
+#predict on validation data set
+predictDT <- predict(DTmodel, newdata=valid_data)
+cmdt <- confusionMatrix(predictDT, valid_data$classe)
+cmdt$table
+
+# generalised boosting model  - model creation, model summary
+set.seed(1235)
+controlGBM <- trainControl(method = "repeatedcv", number = 5, repeats = 1)
+GBMmodel  <- train(classe ~ ., data=train_data, method = "gbm",
+                    trControl = controlGBM, verbose = FALSE)
+GBMmodel$finalModel
+
+#predict on validation data set
+predictGBM <- predict(GBMmodel, newdata=valid_data)
+cmgbm <- confusionMatrix(predictGBM, valid_data$classe)
+cmgbm$table
+```
+
+### Model Selection and Prediction on Test Data Set
+
+After assessing the estimated out of sample error for each model the Generalised Boosting Model was chosen as it has such a low error rate. The 100% accuracy of the Random Forest model is concerning and suggests there might be significant overfitting. The GBM was then used to predict the class from the test data set.
+
+```{r}
+# Out of sample error for the three models
+rf_error <- as.numeric(1- cmrf$overall["Accuracy"])
+dt_error <- as.numeric(1- cmdt$overall["Accuracy"])
+gbm_error <- as.numeric(1- cmgbm$overall["Accuracy"])
+
+rf_error
+dt_error
+gbm_error
+
+# use chosen model on test data
+predict_test <- predict(GBMmodel, newdata=test_data)
+predict_test
+```

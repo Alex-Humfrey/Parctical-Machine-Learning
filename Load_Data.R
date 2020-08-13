@@ -1,4 +1,5 @@
-library(dplyr);library(ggplot2);library(caret)
+library(dplyr);library(ggplot2);library(caret); library(randomForest); library(rpart); 
+library(rpart.plot); library(RColorBrewer); library(rattle); library(gbm)
 
 url_train <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
 url_test <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
